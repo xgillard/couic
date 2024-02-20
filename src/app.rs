@@ -201,33 +201,69 @@ impl AppState<'_> {
         Ok(())
     }
     fn select_input(&mut self, input: Event) -> Result<()> {
-        match input {
-            Event::Key(KeyEvent{code: KeyCode::Esc, ..})       => { self.set_mode(Mode::Command); },
-            // 
-            Event::Key(KeyEvent{code: KeyCode::Right, modifiers: KeyModifiers::CONTROL, ..}) |
-            Event::Key(KeyEvent{code: KeyCode::Char('w'), ..}) => { self.data.text.move_cursor(tui_textarea::CursorMove::WordForward); },
-            Event::Key(KeyEvent{code: KeyCode::Left, modifiers: KeyModifiers::CONTROL, ..}) |
-            Event::Key(KeyEvent{code: KeyCode::Char('b'), ..}) => { self.data.text.move_cursor(tui_textarea::CursorMove::WordBack); },
-            //
-            Event::Key(KeyEvent{code: KeyCode::Char('u'), modifiers: KeyModifiers::CONTROL, ..}) |
-            Event::Key(KeyEvent{code: KeyCode::PageUp, ..})   => { self.data.text.move_cursor(tui_textarea::CursorMove::ParagraphBack); },
-            Event::Key(KeyEvent{code: KeyCode::Char('d'), modifiers: KeyModifiers::CONTROL, ..}) |
-            Event::Key(KeyEvent{code: KeyCode::PageDown, ..}) => { self.data.text.move_cursor(tui_textarea::CursorMove::ParagraphForward); },
-            Event::Key(KeyEvent{code: KeyCode::Char('^'), ..}) |
-            Event::Key(KeyEvent{code: KeyCode::Home, ..})     => { self.data.text.move_cursor(tui_textarea::CursorMove::Head); },
-            Event::Key(KeyEvent{code: KeyCode::Char('$'), ..}) |
-            Event::Key(KeyEvent{code: KeyCode::End, ..})      => { self.data.text.move_cursor(tui_textarea::CursorMove::End); },
-            //
-            Event::Key(KeyEvent{code: KeyCode::Left, ..})      => { self.data.text.move_cursor(tui_textarea::CursorMove::Back); },
-            Event::Key(KeyEvent{code: KeyCode::Right, ..})     => { self.data.text.move_cursor(tui_textarea::CursorMove::Forward); },
-            Event::Key(KeyEvent{code: KeyCode::Up, ..})        => { self.data.text.move_cursor(tui_textarea::CursorMove::Up); },
-            Event::Key(KeyEvent{code: KeyCode::Down, ..})      => { self.data.text.move_cursor(tui_textarea::CursorMove::Down); },
-            //
-            Event::Key(KeyEvent{code: KeyCode::Char('x'), ..}) => { self.data.text.cut(); self.set_mode(Mode::Command); },
-            _ => { /* ignore */}
+        if let Some(input) = self.movement(input) {
+            match input {
+                Event::Key(KeyEvent{code: KeyCode::Esc, ..})       => { self.set_mode(Mode::Command); },
+                Event::Key(KeyEvent{code: KeyCode::Char('x'), ..}) => { self.data.text.cut(); self.set_mode(Mode::Command); },
+                _ => { /* ignore */}
+            }
         }
         Ok(())
     }
+    fn movement(&mut self, input: Event) -> Option<Event> {
+        match input {
+            Event::Key(KeyEvent{code: KeyCode::Right, modifiers: KeyModifiers::CONTROL, ..}) |
+            Event::Key(KeyEvent{code: KeyCode::Char('w'), ..}) => { 
+                self.data.text.move_cursor(tui_textarea::CursorMove::WordForward); 
+                None
+            },
+            Event::Key(KeyEvent{code: KeyCode::Left, modifiers: KeyModifiers::CONTROL, ..}) |
+            Event::Key(KeyEvent{code: KeyCode::Char('b'), ..}) => { 
+                self.data.text.move_cursor(tui_textarea::CursorMove::WordBack); 
+                None
+            },
+            //
+            Event::Key(KeyEvent{code: KeyCode::Char('u'), modifiers: KeyModifiers::CONTROL, ..}) |
+            Event::Key(KeyEvent{code: KeyCode::PageUp, ..})   => { 
+                self.data.text.move_cursor(tui_textarea::CursorMove::ParagraphBack); 
+                None
+            },
+            Event::Key(KeyEvent{code: KeyCode::Char('d'), modifiers: KeyModifiers::CONTROL, ..}) |
+            Event::Key(KeyEvent{code: KeyCode::PageDown, ..}) => { 
+                self.data.text.move_cursor(tui_textarea::CursorMove::ParagraphForward); 
+                None
+            },
+            Event::Key(KeyEvent{code: KeyCode::Char('^'), ..}) |
+            Event::Key(KeyEvent{code: KeyCode::Home, ..})     => { 
+                self.data.text.move_cursor(tui_textarea::CursorMove::Head); 
+                None
+            },
+            Event::Key(KeyEvent{code: KeyCode::Char('$'), ..}) |
+            Event::Key(KeyEvent{code: KeyCode::End, ..})      => { 
+                self.data.text.move_cursor(tui_textarea::CursorMove::End); 
+                None
+            },
+            //
+            Event::Key(KeyEvent{code: KeyCode::Left, ..})      => { 
+                self.data.text.move_cursor(tui_textarea::CursorMove::Back); 
+                None
+            },
+            Event::Key(KeyEvent{code: KeyCode::Right, ..})     => { 
+                self.data.text.move_cursor(tui_textarea::CursorMove::Forward); 
+                None
+            },
+            Event::Key(KeyEvent{code: KeyCode::Up, ..})        => { 
+                self.data.text.move_cursor(tui_textarea::CursorMove::Up); 
+                None
+            },
+            Event::Key(KeyEvent{code: KeyCode::Down, ..})      => { 
+                self.data.text.move_cursor(tui_textarea::CursorMove::Down); 
+                None
+            },
+            _ => Some(input)
+        }
+    }
+
     fn search_input(&mut self, input: Event) -> Result<()> {
         match input {
             Event::Key(KeyEvent{code: KeyCode::Esc, ..}) => { 
@@ -257,30 +293,32 @@ impl AppState<'_> {
         Ok(())
     }
     fn command_input(&mut self, input: Event) -> Result<()> {
-        let input = input.into();
-        match input {
-            Input { key: Key::Char('q'), .. } => { self.set_mode(Mode::Quit); },
-            Input { key: Key::Char('o'), .. } => { self.set_mode(Mode::OpenDir); self.data.cwd.move_end(); },
-            Input { key: Key::Char('f'), .. } => { self.set_mode(Mode::OpenFile); self.data.curr.move_end(); },
-            Input { key: Key::Char('i'), .. } => { self.set_mode(Mode::Input); },
-            Input { key: Key::Char('h'), .. } => { self.set_mode(Mode::History); },
-            Input { key: Key::Char('/'), .. } => { self.set_mode(Mode::Search); self.data.srch.move_end(); },
-            Input { key: Key::Char('*'), .. } => {
-                let text = self.data.text.lines().join("\n");
-                let mut clipboard: ClipboardContext = ClipboardProvider::new().unwrap();
-                clipboard.set_contents(text).unwrap();
-                self.data.msg = "Filed Copied to Clipboard".to_string();
-            },
-            //
-            Input { key: Key::Char('n'), .. } => { self.next()?; },
-            Input { key: Key::Char('p'), .. } => { self.prev()?; },
-            Input { key: Key::Char('w'), .. } => { self.save()?; },
-            //
-            Input { key: Key::Char('#'), .. } => { self.data.text.insert_str("###"); },
-            Input { key: Key::Char('l'), .. } => { self.split_long_lines(); },
-            //
-            Input { key: Key::Char(' '), .. } => { self.set_mode(Mode::Selection); self.data.text.start_selection(); } 
-            _ =>  { /* do nothing */ }
+        if let Some(input) = self.movement(input) {
+            let input = input.into();
+            match input {
+                Input { key: Key::Char('q'), .. } => { self.set_mode(Mode::Quit); },
+                Input { key: Key::Char('o'), .. } => { self.set_mode(Mode::OpenDir); self.data.cwd.move_end(); },
+                Input { key: Key::Char('f'), .. } => { self.set_mode(Mode::OpenFile); self.data.curr.move_end(); },
+                Input { key: Key::Char('i'), .. } => { self.set_mode(Mode::Input); },
+                Input { key: Key::Char('h'), .. } => { self.set_mode(Mode::History); },
+                Input { key: Key::Char('/'), .. } => { self.set_mode(Mode::Search); self.data.srch.move_end(); },
+                Input { key: Key::Char('*'), .. } => {
+                    let text = self.data.text.lines().join("\n");
+                    let mut clipboard: ClipboardContext = ClipboardProvider::new().unwrap();
+                    clipboard.set_contents(text).unwrap();
+                    self.data.msg = "Filed Copied to Clipboard".to_string();
+                },
+                //
+                Input { key: Key::Char('n'), .. } => { self.next()?; },
+                Input { key: Key::Char('p'), .. } => { self.prev()?; },
+                Input { key: Key::Char('w'), .. } => { self.save()?; },
+                //
+                Input { key: Key::Char('#'), .. } => { self.data.text.insert_str("###"); },
+                Input { key: Key::Char('l'), .. } => { self.split_long_lines(); },
+                //
+                Input { key: Key::Char(' '), .. } => { self.set_mode(Mode::Selection); self.data.text.start_selection(); } 
+                _ =>  { /* do nothing */ }
+            }
         }
         Ok(())
     }
