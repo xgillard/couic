@@ -203,7 +203,7 @@ impl AppState<'_> {
     fn select_input(&mut self, input: Event) -> Result<()> {
         if let Some(input) = self.movement(input) {
             match input {
-                Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Esc, ..})       => { self.set_mode(Mode::Command); },
+                Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Esc, ..}) => { self.set_mode(Mode::Command);  },
                 Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Char('x'), ..}) => { self.data.text.cut(); self.set_mode(Mode::Command); },
                 _ => { /* ignore */}
             }
