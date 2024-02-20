@@ -159,10 +159,10 @@ impl AppState<'_> {
     }
     fn open_input(&mut self, input: Event) -> Result<()> {
         match input {
-            Event::Key(KeyEvent{code: KeyCode::Esc, ..}) => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Esc, ..}) => { 
                 self.set_mode(Mode::Command); 
             },
-            Event::Key(KeyEvent{code: KeyCode::Enter, ..}) => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Enter, ..}) => { 
                 let cwd = self.data.cwd.value();
                 self.data.tot = read_dir(cwd)?
                     .filter_map(|e| e.ok())
@@ -179,10 +179,10 @@ impl AppState<'_> {
     }
     fn curr_input(&mut self, input: Event) -> Result<()> {
         match input {
-            Event::Key(KeyEvent{code: KeyCode::Esc, ..}) => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Esc, ..}) => { 
                 self.set_mode(Mode::Command); 
             },
-            Event::Key(KeyEvent{code: KeyCode::Enter, ..}) => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Enter, ..}) => { 
                 let curr = self.data.curr.value().parse()?;
                 self.load(curr)?;
                 self.set_mode(Mode::Command); 
@@ -203,8 +203,8 @@ impl AppState<'_> {
     fn select_input(&mut self, input: Event) -> Result<()> {
         if let Some(input) = self.movement(input) {
             match input {
-                Event::Key(KeyEvent{code: KeyCode::Esc, ..})       => { self.set_mode(Mode::Command); },
-                Event::Key(KeyEvent{code: KeyCode::Char('x'), ..}) => { self.data.text.cut(); self.set_mode(Mode::Command); },
+                Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Esc, ..})       => { self.set_mode(Mode::Command); },
+                Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Char('x'), ..}) => { self.data.text.cut(); self.set_mode(Mode::Command); },
                 _ => { /* ignore */}
             }
         }
@@ -212,51 +212,51 @@ impl AppState<'_> {
     }
     fn movement(&mut self, input: Event) -> Option<Event> {
         match input {
-            Event::Key(KeyEvent{code: KeyCode::Right, modifiers: KeyModifiers::CONTROL, ..}) |
-            Event::Key(KeyEvent{code: KeyCode::Char('w'), ..}) => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Right, modifiers: KeyModifiers::CONTROL, ..}) |
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Char('w'), ..}) => { 
                 self.data.text.move_cursor(tui_textarea::CursorMove::WordForward); 
                 None
             },
-            Event::Key(KeyEvent{code: KeyCode::Left, modifiers: KeyModifiers::CONTROL, ..}) |
-            Event::Key(KeyEvent{code: KeyCode::Char('b'), ..}) => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Left, modifiers: KeyModifiers::CONTROL, ..}) |
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Char('b'), ..}) => { 
                 self.data.text.move_cursor(tui_textarea::CursorMove::WordBack); 
                 None
             },
             //
-            Event::Key(KeyEvent{code: KeyCode::Char('u'), modifiers: KeyModifiers::CONTROL, ..}) |
-            Event::Key(KeyEvent{code: KeyCode::PageUp, ..})   => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Char('u'), modifiers: KeyModifiers::CONTROL, ..}) |
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::PageUp, ..}) => { 
                 self.data.text.move_cursor(tui_textarea::CursorMove::ParagraphBack); 
                 None
             },
-            Event::Key(KeyEvent{code: KeyCode::Char('d'), modifiers: KeyModifiers::CONTROL, ..}) |
-            Event::Key(KeyEvent{code: KeyCode::PageDown, ..}) => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Char('d'), modifiers: KeyModifiers::CONTROL, ..}) |
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::PageDown, ..}) => { 
                 self.data.text.move_cursor(tui_textarea::CursorMove::ParagraphForward); 
                 None
             },
-            Event::Key(KeyEvent{code: KeyCode::Char('^'), ..}) |
-            Event::Key(KeyEvent{code: KeyCode::Home, ..})     => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Char('^'), ..}) |
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Home, ..}) => { 
                 self.data.text.move_cursor(tui_textarea::CursorMove::Head); 
                 None
             },
-            Event::Key(KeyEvent{code: KeyCode::Char('$'), ..}) |
-            Event::Key(KeyEvent{code: KeyCode::End, ..})      => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Char('$'), ..}) |
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::End, ..}) => { 
                 self.data.text.move_cursor(tui_textarea::CursorMove::End); 
                 None
             },
             //
-            Event::Key(KeyEvent{code: KeyCode::Left, ..})      => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Left, ..}) => { 
                 self.data.text.move_cursor(tui_textarea::CursorMove::Back); 
                 None
             },
-            Event::Key(KeyEvent{code: KeyCode::Right, ..})     => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Right, ..}) => { 
                 self.data.text.move_cursor(tui_textarea::CursorMove::Forward); 
                 None
             },
-            Event::Key(KeyEvent{code: KeyCode::Up, ..})        => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Up, ..}) => { 
                 self.data.text.move_cursor(tui_textarea::CursorMove::Up); 
                 None
             },
-            Event::Key(KeyEvent{code: KeyCode::Down, ..})      => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Down, ..}) => { 
                 self.data.text.move_cursor(tui_textarea::CursorMove::Down); 
                 None
             },
@@ -266,14 +266,14 @@ impl AppState<'_> {
 
     fn search_input(&mut self, input: Event) -> Result<()> {
         match input {
-            Event::Key(KeyEvent{code: KeyCode::Esc, ..}) => { 
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Esc, ..}) => { 
                 self.set_mode(Mode::Command); 
             },
-            Event::Key(KeyEvent{code: KeyCode::Enter, modifiers: KeyModifiers::SHIFT, ..}) => {
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Enter, modifiers: KeyModifiers::SHIFT, ..}) => {
                 self.data.text.set_search_pattern(self.data.srch.value())?;
                 self.data.text.search_back(false);
             },
-            Event::Key(KeyEvent{code: KeyCode::Enter, ..}) => {
+            Event::Key(KeyEvent{kind: crossterm::event::KeyEventKind::Press, code: KeyCode::Enter, ..}) => {
                 self.data.text.set_search_pattern(self.data.srch.value())?;
                 self.data.text.search_forward(false);
             }, 
@@ -339,9 +339,8 @@ impl AppState<'_> {
             .open(fname)?;
 
         let mut wrt = BufWriter::new(file);
-        for line in self.data.text.lines() {
-            wrt.write_all(line.as_bytes())?;
-        }
+        let text = self.data.text.lines().join("\n");
+        wrt.write_all(text.as_bytes())?;
         wrt.flush()?;
 
         Ok(())
