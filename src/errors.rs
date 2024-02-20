@@ -1,5 +1,5 @@
 //! This module comprises the definition of the errors that could possibly arise
-use std::num::ParseIntError;
+use std::{fmt::Debug, num::ParseIntError};
 
 use thiserror::Error;
 
@@ -11,7 +11,7 @@ pub enum Error {
     #[error("not an int {0}")]
     ParseInt(#[from] ParseIntError),
     #[error("regex error {0}")]
-    Regex(#[from] regex::Error)
+    Regex(#[from] regex::Error),
 }
 
 /// Easy result redefinition

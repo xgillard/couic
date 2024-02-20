@@ -1,7 +1,7 @@
 //! This is where the core of the application is defined
 
 use std::env::current_dir;
-use std::fs::File;
+use std::fs::{read_dir, File};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -9,13 +9,14 @@ use std::str::FromStr;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use displaythis::Display;
 use ratatui::layout::{Constraint, Layout};
-use ratatui::style::{Color, Style};
-use ratatui::widgets::{Block, Borders};
+use ratatui::style::{Color, Modifier, Style, Styled, Stylize};
+use ratatui::widgets::{Block, Borders, LineGauge};
 use ratatui::Frame;
 use regex::Regex;
 use tui_textarea::{Input, Key, TextArea};
 use tui_prompts::prelude::*;
 use lazy_static::*;
+use clipboard::*;
 
 use crate::errors::Result;
 use crate::term::{init_term, reset_term, Term};
@@ -61,6 +62,7 @@ pub struct Data<'a> {
     mode: Mode,
     text: TextArea<'a>,
     cwd : TextState<'a>,
+    tot : usize,
     curr: TextState<'a>,
     srch: TextState<'a>,
     msg : String,
@@ -70,8 +72,10 @@ pub struct View;
 
 #[derive(Debug, Clone, Copy, Display)]
 pub enum Mode {
-    #[display("OPEN")]
-    Open,
+    #[display("OPEN-DIR")]
+    OpenDir,
+    #[display("OPEN-FILE")]
+    OpenFile,
     #[display("INPUT")]
     Input,
     #[display("SELECT")]
@@ -104,6 +108,8 @@ impl<'a> App<'a> {
             }
             if let Err(e) = state.input() {
                 state.data.msg = format!("{e}");
+            } else {
+                state.data.msg = String::new();
             }
 
             if matches!(state.mode(), Mode::Quit) {
@@ -141,7 +147,8 @@ impl AppState<'_> {
         let input = crossterm::event::read()?;
 
         match self.mode() {
-            Mode::Open      => self.open_input(input),
+            Mode::OpenDir   => self.open_input(input),
+            Mode::OpenFile  => self.curr_input(input),
             Mode::Input     => self.input_input(input),
             Mode::Selection => self.select_input(input),
             Mode::Search    => self.search_input(input),
@@ -156,10 +163,31 @@ impl AppState<'_> {
                 self.set_mode(Mode::Command); 
             },
             Event::Key(KeyEvent{code: KeyCode::Enter, ..}) => { 
+                let cwd = self.data.cwd.value();
+                self.data.tot = read_dir(cwd)?
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.path().is_file() )
+                    .count();
+
                 self.load(0)?;
                 self.set_mode(Mode::Command); 
             },
             Event::Key(event) => { self.data.cwd.handle_key_event(event); },
+            _ => { /* ignore */}
+        }
+        Ok(())
+    }
+    fn curr_input(&mut self, input: Event) -> Result<()> {
+        match input {
+            Event::Key(KeyEvent{code: KeyCode::Esc, ..}) => { 
+                self.set_mode(Mode::Command); 
+            },
+            Event::Key(KeyEvent{code: KeyCode::Enter, ..}) => { 
+                let curr = self.data.curr.value().parse()?;
+                self.load(curr)?;
+                self.set_mode(Mode::Command); 
+            },
+            Event::Key(event) => { self.data.curr.handle_key_event(event); },
             _ => { /* ignore */}
         }
         Ok(())
@@ -195,6 +223,7 @@ impl AppState<'_> {
             Event::Key(KeyEvent{code: KeyCode::Up, ..})        => { self.data.text.move_cursor(tui_textarea::CursorMove::Up); },
             Event::Key(KeyEvent{code: KeyCode::Down, ..})      => { self.data.text.move_cursor(tui_textarea::CursorMove::Down); },
             //
+            Event::Key(KeyEvent{code: KeyCode::Char('x'), ..}) => { self.data.text.cut(); self.set_mode(Mode::Command); },
             _ => { /* ignore */}
         }
         Ok(())
@@ -202,16 +231,17 @@ impl AppState<'_> {
     fn search_input(&mut self, input: Event) -> Result<()> {
         match input {
             Event::Key(KeyEvent{code: KeyCode::Esc, ..}) => { 
-                self.data.text.set_search_pattern(self.data.srch.value())?;
                 self.set_mode(Mode::Command); 
             },
             Event::Key(KeyEvent{code: KeyCode::Enter, modifiers: KeyModifiers::SHIFT, ..}) => {
+                self.data.text.set_search_pattern(self.data.srch.value())?;
                 self.data.text.search_back(false);
             },
             Event::Key(KeyEvent{code: KeyCode::Enter, ..}) => {
+                self.data.text.set_search_pattern(self.data.srch.value())?;
                 self.data.text.search_forward(false);
             }, 
-            Event::Key(event) => { self.data.cwd.handle_key_event(event); },
+            Event::Key(event) => { self.data.srch.handle_key_event(event); },
             _ => { /* ignore */}
         }
         Ok(())
@@ -229,18 +259,24 @@ impl AppState<'_> {
     fn command_input(&mut self, input: Event) -> Result<()> {
         let input = input.into();
         match input {
-            Input { key: Key::Esc, .. }       => { self.set_mode(Mode::Quit); },
-            Input { key: Key::Char('o'), .. } => { self.set_mode(Mode::Open); self.data.cwd.move_end(); },
+            Input { key: Key::Char('q'), .. } => { self.set_mode(Mode::Quit); },
+            Input { key: Key::Char('o'), .. } => { self.set_mode(Mode::OpenDir); self.data.cwd.move_end(); },
+            Input { key: Key::Char('f'), .. } => { self.set_mode(Mode::OpenFile); self.data.curr.move_end(); },
             Input { key: Key::Char('i'), .. } => { self.set_mode(Mode::Input); },
             Input { key: Key::Char('h'), .. } => { self.set_mode(Mode::History); },
             Input { key: Key::Char('/'), .. } => { self.set_mode(Mode::Search); self.data.srch.move_end(); },
+            Input { key: Key::Char('*'), .. } => {
+                let text = self.data.text.lines().join("\n");
+                let mut clipboard: ClipboardContext = ClipboardProvider::new().unwrap();
+                clipboard.set_contents(text).unwrap();
+                self.data.msg = "Filed Copied to Clipboard".to_string();
+            },
             //
             Input { key: Key::Char('n'), .. } => { self.next()?; },
             Input { key: Key::Char('p'), .. } => { self.prev()?; },
             Input { key: Key::Char('w'), .. } => { self.save()?; },
             //
             Input { key: Key::Char('#'), .. } => { self.data.text.insert_str("###"); },
-            Input { key: Key::Char('x'), .. } => { self.data.text.cut(); },
             Input { key: Key::Char('l'), .. } => { self.split_long_lines(); },
             //
             Input { key: Key::Char(' '), .. } => { self.set_mode(Mode::Selection); self.data.text.start_selection(); } 
@@ -310,6 +346,7 @@ impl Data<'_> {
             text: textarea(vec![], default_search),
             cwd : TextState::new().with_value(cwd.to_string_lossy().to_string()),
             curr: TextState::new().with_value("000"),
+            tot : 1,
             srch: TextState::new().with_value(default_search),
             msg : String::new(),
         }
@@ -328,9 +365,11 @@ impl View {
         ]).split(frame.size());
 
         let title = Block::new()
-            .borders(Borders::TOP)
             .title_alignment(ratatui::layout::Alignment::Center)
-            .title(data.curr.value());
+            .title(data.curr.value())
+            .add_modifier(Modifier::BOLD)
+            .set_style(Style::default().bg(Color::White).fg(Color::Blue));
+
         let mode = Block::new()
             .title_alignment(ratatui::layout::Alignment::Right)
             .title(format!("{}", data.mode));
@@ -346,18 +385,29 @@ impl View {
         frame.render_widget(mode, status_line[1]);
 
         match data.mode {
-            Mode::Open => {
+            Mode::OpenDir => {
                 TextPrompt::from("Open Directory")
                     .draw(frame, status_line[0], &mut data.cwd);
+            },
+            Mode::OpenFile => {
+                TextPrompt::from("Open File (id only)")
+                    .draw(frame, status_line[0], &mut data.curr);
             },
             Mode::Search => {
                 TextPrompt::from("Search Pattern")
                     .draw(frame, status_line[0], &mut data.srch);
             },
             _ => {
-                let msg = Block::new().title(data.msg.as_str())
-                    .style(Style::default().fg(Color::Red));
-                frame.render_widget(msg, status_line[0]);
+                if data.msg.is_empty() {
+                    let cur: u32 = data.curr.value().parse().unwrap();
+                    let ratio = (1 + cur) as f64 / (1 + data.tot) as f64;
+                    let progress = LineGauge::default().ratio(ratio);
+                    frame.render_widget(progress, status_line[0]);
+                } else {
+                    let msg = Block::new().title(data.msg.as_str())
+                        .style(Style::default().fg(Color::Red));
+                    frame.render_widget(msg, status_line[0]);
+                }
             }
         }
     }
