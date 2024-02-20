@@ -311,7 +311,7 @@ impl AppState<'_> {
                 //
                 Input { key: Key::Char('n'), .. } => { self.next()?; },
                 Input { key: Key::Char('p'), .. } => { self.prev()?; },
-                Input { key: Key::Char('w'), .. } => { self.save()?; },
+                Input { key: Key::Char('s'), ctrl: true, .. } => { self.save()?; },
                 //
                 Input { key: Key::Char('#'), .. } => { self.data.text.insert_str("###"); },
                 Input { key: Key::Char('l'), .. } => { self.split_long_lines(); },
@@ -327,7 +327,9 @@ impl AppState<'_> {
     }
 
     fn save(&self) -> Result<()> {
-        let fname = format!("{}{:03}.txt", self.data.cwd.value(), self.data.curr.value());
+        let cwd = PathBuf::from_str(self.data.cwd.value()).unwrap();
+        let x: u32 = self.data.curr.value().parse()?;
+        let fname = cwd.join(format!("{x:03}.txt"));
         std::fs::remove_file(&fname)?;
 
         let file = std::fs::OpenOptions::new()
