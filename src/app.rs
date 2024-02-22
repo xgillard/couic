@@ -313,9 +313,10 @@ impl AppState<'_> {
                 Input { key: Key::Char('p'), .. } => { self.prev()?; },
                 Input { key: Key::Char('s'), ctrl: true, .. } => { self.save()?; },
                 //
-                Input { key: Key::Char('#'), .. } => { self.data.text.insert_str("###"); },
+                Input { key: Key::Char('#'), .. } => { self.data.text.insert_str("###\n"); },
                 Input { key: Key::Char('l'), .. } => { self.split_long_lines(); },
                 //
+                Input { key: Key::Char(' '), .. } |
                 Input { key: Key::Char('v'), .. } => { self.set_mode(Mode::Selection); self.data.text.start_selection(); } 
                 _ =>  { /* do nothing */ }
             }
