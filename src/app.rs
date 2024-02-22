@@ -316,7 +316,7 @@ impl AppState<'_> {
                 Input { key: Key::Char('#'), .. } => { self.data.text.insert_str("###"); },
                 Input { key: Key::Char('l'), .. } => { self.split_long_lines(); },
                 //
-                Input { key: Key::Char(' '), .. } => { self.set_mode(Mode::Selection); self.data.text.start_selection(); } 
+                Input { key: Key::Char('v'), .. } => { self.set_mode(Mode::Selection); self.data.text.start_selection(); } 
                 _ =>  { /* do nothing */ }
             }
         }
